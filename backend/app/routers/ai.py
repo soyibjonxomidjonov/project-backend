@@ -117,7 +117,23 @@ async def chat(
         msg_obj = response.choices[0].message
 
         if msg_obj.tool_calls:
-            messages.append(msg_obj.model_dump())
+            # Rebuild the assistant message with only Groq-supported fields
+            # (model_dump() includes `annotations`, which Groq rejects).
+            messages.append({
+                "role": "assistant",
+                "content": msg_obj.content or "",
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in msg_obj.tool_calls
+                ],
+            })
             tool_meta = []
             for tc in msg_obj.tool_calls:
                 result = await execute_tool(db, tc.function.name, tc.function.arguments)
