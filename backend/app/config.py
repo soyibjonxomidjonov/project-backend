@@ -35,15 +35,15 @@ class Settings(BaseSettings):
     LLM_BASE_URL: str = "https://api.groq.com/openai/v1"
     LLM_API_KEY: str = ""
     LLM_API_KEYS: str = ""
-    LLM_MODEL: str = "llama-3.3-70b-versatile"
-    LLM_FALLBACK_MODEL: str = "llama-3.1-8b-instant"
+    LLM_MODEL: str = "openai/gpt-oss-120b"
+    LLM_FALLBACK_MODEL: str = "qwen/qwen3.8-27b"
 
     # Gemini (rasm tahlili + embedding)
     GEMINI_API_KEY: str = ""
     GEMINI_API_KEYS: str = ""
 
-    # Embedding (Gemini text-embedding-004 = 768 dim)
-    EMBEDDING_DIM: int = 768
+    # Embedding (Gemini gemini-embedding-001 = 3072 dim)
+    EMBEDDING_DIM: int = 3072
 
     # Fayllar
     UPLOAD_DIR: str = "/data/uploads"
@@ -51,7 +51,7 @@ class Settings(BaseSettings):
 
     GIT_SHA: str = "dev"
 
-    model_config = {"env_file": ".env", "extra": "ignore"}
+    model_config = {"env_file": ("../.env", ".env"), "extra": "ignore"}
 
     def get_llm_keys(self) -> list[str]:
         if self.LLM_API_KEYS:

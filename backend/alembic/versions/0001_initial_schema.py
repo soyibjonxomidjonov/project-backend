@@ -67,7 +67,7 @@ def upgrade() -> None:
         sa.Column("document_id", UUID(as_uuid=True), sa.ForeignKey("documents.id", ondelete="CASCADE"), nullable=False),
         sa.Column("content", sa.Text, nullable=False),
         sa.Column("chunk_index", sa.Integer, nullable=False),
-        sa.Column("embedding", Vector(768)),
+        sa.Column("embedding", Vector(3072)),
     )
     op.create_index(
         "ix_document_chunks_embedding",

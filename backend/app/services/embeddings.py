@@ -7,7 +7,7 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-EMBED_URL = "https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004"
+EMBED_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001"
 
 
 def _get_gemini_keys() -> list[str]:
@@ -23,7 +23,7 @@ async def _embed_batch_with_key(
 ) -> list[list[float]] | None:
     requests = [
         {
-            "model": "models/text-embedding-004",
+            "model": "models/gemini-embedding-001",
             "content": {"parts": [{"text": t}]},
             "taskType": task_type,
         }
