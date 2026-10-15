@@ -69,14 +69,9 @@ def upgrade() -> None:
         sa.Column("chunk_index", sa.Integer, nullable=False),
         sa.Column("embedding", Vector(3072)),
     )
-    op.create_index(
-        "ix_document_chunks_embedding",
-        "document_chunks",
-        ["embedding"],
-        postgresql_using="hnsw",
-        postgresql_with={"m": 16, "ef_construction": 64},
-        postgresql_ops={"embedding": "vector_cosine_ops"},
-    )
+    # NOTE: HNSW/IVFFlat indexes support at most 2000 dims for the `vector`
+    # type, but embeddings are 3072-dim (Gemini). We therefore keep the column
+    # unindexed and rely on exact cosine search (rag.py uses cosine_distance).
 
     op.create_table(
         "chat_sessions",
@@ -101,7 +96,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("chat_messages")
     op.drop_table("chat_sessions")
-    op.drop_index("ix_document_chunks_embedding", table_name="document_chunks")
     op.drop_table("document_chunks")
     op.drop_table("documents")
     op.drop_index("ix_entities_data", table_name="entities")

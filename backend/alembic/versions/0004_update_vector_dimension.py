@@ -15,26 +15,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.drop_index("ix_document_chunks_embedding", table_name="document_chunks")
-    op.execute("ALTER TABLE document_chunks ALTER COLUMN embedding TYPE vector(3072)")
-    op.create_index(
-        "ix_document_chunks_embedding",
-        "document_chunks",
-        ["embedding"],
-        postgresql_using="hnsw",
-        postgresql_with={"m": 16, "ef_construction": 64},
-        postgresql_ops={"embedding": "vector_cosine_ops"},
-    )
+    # No-op: 0001 already creates the embedding column as vector(3072) with no
+    # HNSW index (3072 dims exceed pgvector's 2000-dim index limit). Kept to
+    # preserve the revision chain.
+    pass
 
 
 def downgrade() -> None:
-    op.drop_index("ix_document_chunks_embedding", table_name="document_chunks")
-    op.execute("ALTER TABLE document_chunks ALTER COLUMN embedding TYPE vector(768)")
-    op.create_index(
-        "ix_document_chunks_embedding",
-        "document_chunks",
-        ["embedding"],
-        postgresql_using="hnsw",
-        postgresql_with={"m": 16, "ef_construction": 64},
-        postgresql_ops={"embedding": "vector_cosine_ops"},
-    )
+    pass
