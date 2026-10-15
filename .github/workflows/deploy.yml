@@ -65,31 +65,41 @@ jobs:
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
-      - name: Deploy to server
+      - name: Deploy to EC2
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
+          host: ${{ secrets.HOST_DNS }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
             cd /opt/app
             export IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
             docker image prune -f
 
-      - name: Health check
-        run: |
-          sleep 15
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.${{ secrets.BASE_DOMAIN }}/health)
-          if [ "$STATUS" != "200" ]; then
-            echo "Health check failed with status $STATUS"
-            exit 1
-          fi
-          VERSION=$(curl -s https://api.${{ secrets.BASE_DOMAIN }}/health | jq -r '.version')
-          if [ "$VERSION" != "${{ github.sha }}" ]; then
-            echo "Version mismatch: expected ${{ github.sha }}, got $VERSION"
-            exit 1
-          fi
-          echo "Deploy successful: version $VERSION"
+            # Health check (local, port 8000) — domensiz
+            STATUS=""
+            for i in $(seq 1 15); do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || true)
+              if [ "$STATUS" = "200" ]; then break; fi
+              echo "waiting for api... ($i) status=$STATUS"
+              sleep 3
+            done
+            if [ "$STATUS" != "200" ]; then
+              echo "Health check failed with status $STATUS"
+              docker compose -f docker-compose.prod.yml logs --tail=50 api
+              exit 1
+            fi
+            VERSION=$(curl -s http://localhost:8000/health | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
+            if [ "$VERSION" != "${{ github.sha }}" ]; then
+              echo "Version mismatch: expected ${{ github.sha }}, got $VERSION"
+              exit 1
+            fi
+            echo "Deploy successful: version $VERSION"
