@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document, DocumentChunk
-from app.services.embeddings import embed_query, embed_texts
+from app.services.embeddings import embed_query
 
 
 def chunk_text(text: str, chunk_size: int = 800, overlap: int = 100) -> list[str]:
@@ -31,35 +31,27 @@ async def search_similar(
 ) -> list[dict]:
     query_vec = await embed_query(query)
 
+    distance_expr = DocumentChunk.embedding.cosine_distance(query_vec).label("distance")
     stmt = (
         select(
             DocumentChunk.content,
             DocumentChunk.chunk_index,
-            DocumentChunk.document_id,
-            DocumentChunk.embedding.cosine_distance(query_vec).label("distance"),
+            Document.title.label("doc_title"),
+            distance_expr,
         )
+        .join(Document, Document.id == DocumentChunk.document_id)
         .order_by("distance")
         .limit(top_k)
     )
     result = await db.execute(stmt)
-    rows = result.all()
 
-    results = []
-    doc_cache: dict = {}
-    for content, chunk_index, doc_id, distance in rows:
-        similarity = 1 - distance
-        if similarity < min_similarity:
-            continue
-        if doc_id not in doc_cache:
-            doc = (await db.execute(select(Document).where(Document.id == doc_id))).scalar_one()
-            doc_cache[doc_id] = doc.title
-        results.append(
-            {
-                "content": content,
-                "document_title": doc_cache[doc_id],
-                "chunk_index": chunk_index,
-                "similarity": round(similarity, 4),
-            }
-        )
-
-    return results
+    return [
+        {
+            "content": row.content,
+            "document_title": row.doc_title,
+            "chunk_index": row.chunk_index,
+            "similarity": round(1 - row.distance, 4),
+        }
+        for row in result.all()
+        if (1 - row.distance) >= min_similarity
+    ]
