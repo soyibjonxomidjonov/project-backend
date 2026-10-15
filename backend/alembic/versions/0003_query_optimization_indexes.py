@@ -6,6 +6,7 @@ Create Date: 2026-10-15
 """
 from typing import Sequence, Union
 
+import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0003"
@@ -25,7 +26,7 @@ def upgrade() -> None:
     op.create_index(
         "ix_entities_created_at_desc",
         "entities",
-        [op.desc("created_at")],
+        [sa.text("created_at DESC")],
     )
 
     op.create_index(
