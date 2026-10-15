@@ -4,102 +4,24 @@ on:
   push:
     branches: [main]
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: app
-          POSTGRES_PASSWORD: app
-          POSTGRES_DB: app_test
-        options: >-
-          --health-cmd "pg_isready -U app"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install dependencies
-        run: pip install -r backend/requirements.txt pytest pytest-asyncio httpx
-      - name: Run tests
-        working-directory: backend
-        env:
-          DATABASE_URL: postgresql+asyncpg://app:app@localhost:5432/app_test
-          JWT_SECRET: test-secret
-          SESSION_SECRET: test-session
-        run: pytest tests/ -v
-
-  build-and-push:
-    needs: test
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: ./backend
-          push: true
-          build-args: GIT_SHA=${{ github.sha }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
   deploy:
-    needs: build-and-push
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
     steps:
-      - name: Deploy to EC2
+      - name: AWS EC2 ga SSH orqali deploy
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.HOST_DNS }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            set -e
-            cd /opt/app
-            export IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
-            docker image prune -f
+            cd /home/ec2-user/project-backend
+            git fetch origin main
+            sudo chown -R ec2-user:ec2-user .
+            git reset --hard origin/main
 
-            # Health check (local, port 8000) — domensiz
-            STATUS=""
-            for i in $(seq 1 15); do
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || true)
-              if [ "$STATUS" = "200" ]; then break; fi
-              echo "waiting for api... ($i) status=$STATUS"
-              sleep 3
-            done
-            if [ "$STATUS" != "200" ]; then
-              echo "Health check failed with status $STATUS"
-              docker compose -f docker-compose.prod.yml logs --tail=50 api
-              exit 1
-            fi
-            VERSION=$(curl -s http://localhost:8000/health | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
-            if [ "$VERSION" != "${{ github.sha }}" ]; then
-              echo "Version mismatch: expected ${{ github.sha }}, got $VERSION"
-              exit 1
-            fi
-            echo "Deploy successful: version $VERSION"
+            # Build + ishga tushirish (api CMD avtomatik `alembic upgrade head` qiladi)
+            docker compose up -d --build --force-recreate
+
+            docker image prune -f
+            docker compose ps
