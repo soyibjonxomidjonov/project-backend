@@ -1,0 +1,21 @@
+# API subdomain → FastAPI backend
+api.{$BASE_DOMAIN} {
+	reverse_proxy api:8000
+}
+
+# Frontend subdomains → static files
+# Yangi subdomen qo'shish uchun quyidagi blokni nusxalab,
+# "myapp" o'rniga yangi nom yozing:
+#
+# myapp.{$BASE_DOMAIN} {
+#     root * /srv/sites/myapp
+#     file_server
+#     try_files {path} /index.html
+# }
+
+# Default frontend
+app.{$BASE_DOMAIN} {
+	root * /srv/sites/app
+	file_server
+	try_files {path} /index.html
+}
