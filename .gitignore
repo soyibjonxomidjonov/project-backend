@@ -24,3 +24,6 @@ env/
 ENV/
 .idea/
 .vscode/
+
+# Lokal handoff (ops/SSH tafsilotlari — public repoga chiqmasin)
+HANDOFF.md
