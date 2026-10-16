@@ -3,19 +3,28 @@
 Ertangi tanlovda istalgan mavzu berilganda, 2 soat ichida ishlaydigan sayt chiqarish uchun
 tayyor, deploy qilingan, test qilingan backend.
 
-## Tezkor boshlash (development)
+## Lokalda ishga tushirish (zip yoki git clone)
+
+Faqat Docker Desktop (yoki Docker Engine + `docker compose`) kerak.
 
 ```bash
-# .env faylini yaratish
+# 1. Kodni oling: GitHub -> "Code" -> "Download ZIP" (yoki git clone), keyin papkaga kiring
+# 2. .env faylini yarating (shart — repoda yo'q)
 cp .env.example .env
-# Kerakli kalitlarni .env ga yozish
+# 3. Kerakli kalitlarni .env ga yozing (LLM_API_KEY/S, GEMINI_API_KEY/S, SECRET_KEY, ...)
 
-# Ishga tushirish
-docker compose up --build
+# 4. Ishga tushirish (DB + API birga ko'tariladi, migratsiya avtomatik)
+docker compose up -d --build
 ```
 
-API: http://localhost:8000
-Docs: http://localhost:8000/docs
+- API: http://localhost:8000 · Docs: http://localhost:8000/docs · Health: http://localhost:8000/health
+- Postgres (pgvector) lokal konteyner ichida ishlaydi — hech qanday tashqi bazaga ulanmaydi.
+- To'xtatish: `docker compose down` · Bazani ham o'chirish: `docker compose down -v`
+
+### Frontend / CORS
+Lokal frontend `http://localhost:3000` va `http://localhost:5173` (hamda istalgan `localhost`/`127.0.0.1` port)
+CORS'da **har doim ruxsat etilgan** — `.env` ga tegmasdan ishlaydi. Prod frontend uchun `https://<sub>.scholarmap.uz`
+avtomatik, qo'shimcha originlarni `EXTRA_CORS_ORIGINS` orqali bering.
 
 ## Ertangi "mavzu berildi" jarayoni
 
@@ -66,14 +75,17 @@ Keyin: `docker compose -f docker-compose.prod.yml restart caddy`
 | `GET /admin/overview` | Admin statistika |
 | `GET /admin/users` | Foydalanuvchilar ro'yxati |
 
+## Deploy (CD)
+`main` branchga push qilinganda GitHub Actions (`.github/workflows/deploy.yml`) avtomatik deploy qiladi:
+1. SSH orqali EC2 serverga ulanadi
+2. `git fetch` + `git reset --hard origin/main`
+3. `docker compose up -d --build --force-recreate` (image serverda yig'iladi)
+4. Migratsiya (`alembic upgrade head`) api konteyner CMD'ida avtomatik bajariladi
+
+Server `.env` (sirlardan iborat) serverda qo'lda turadi — CD uni ko'chirmaydi.
+
 ## Rollback
 ```bash
-IMAGE_TAG=<oldingi sha> docker compose -f docker-compose.prod.yml up -d
+# Serverda oldingi commitga qaytarish:
+git reset --hard <oldingi-sha> && docker compose up -d --build --force-recreate
 ```
-
-## Deploy
-`main` branchga push qilinganda GitHub Actions avtomatik deploy qiladi:
-1. Testlar ishga tushadi
-2. Docker image yig'iladi va GHCR ga yuklanadi
-3. SSH orqali serverda yangilanadi
-4. Health check tekshiriladi

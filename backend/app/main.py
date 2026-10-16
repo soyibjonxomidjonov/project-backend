@@ -40,10 +40,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 # --- CORS ---
+# Ruxsat etilgan originlar:
+#   1. Prod frontend subdomenlari: https://<sub>.scholarmap.uz  (ALLOWED_FRONTEND_SUFFIX)
+#   2. Lokal development: http://localhost:<port> va http://127.0.0.1:<port>  (har doim)
+#   3. .env dagi qo'shimcha originlar: EXTRA_CORS_ORIGINS (masalan https://scholarmap.uz)
+# Lokalda localhost:3000 / :5173 frontend .env ga tegmasdan ham ishlaydi.
 
 extra_origins = [o.strip() for o in settings.EXTRA_CORS_ORIGINS.split(",") if o.strip()]
 suffix_escaped = re.escape(settings.ALLOWED_FRONTEND_SUFFIX)
-origin_regex = rf"^https://[a-zA-Z0-9\-]+{suffix_escaped}$"
+origin_regex = (
+    rf"^(https://[a-zA-Z0-9\-]+{suffix_escaped}"
+    r"|http://localhost(:\d+)?"
+    r"|http://127\.0\.0\.1(:\d+)?)$"
+)
 
 app.add_middleware(
     CORSMiddleware,
